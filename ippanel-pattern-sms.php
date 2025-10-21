@@ -1,8 +1,8 @@
 <?php
 /**
- * Plugin Name: ippanel Pattern SMS
- * Description: ارسال پیامک پترن (الگو) از طریق ippanel.com با یک فرم ساده.
- * Version: 1.0
+ * Plugin Name: ippanel Pattern SMS (No Variable)
+ * Description: ارسال پیامک پترن (الگو) بدون متغیر از طریق ippanel.com.
+ * Version: 1.1
  * Author: Your Name
  */
 
@@ -63,14 +63,7 @@ function ippanel_settings_init() {
         ['name' => 'pattern_code']
     );
     
-    add_settings_field(
-        'ippanel_pattern_variable',
-        'نام متغیر الگو (مثلاً: verification-code)',
-        'ippanel_text_field_render',
-        'ippanel-pattern-sms',
-        'ippanel_settings_section',
-        ['name' => 'pattern_variable']
-    );
+    // فیلد متغیر الگو حذف شد چون پیامک ما متغیری ندارد.
 }
 
 function ippanel_text_field_render($args) {
@@ -138,7 +131,7 @@ function ippanel_enqueue_scripts() {
             'ippanel-send-sms-js',
             plugin_dir_url(__FILE__) . 'js/send-sms.js',
             array('jquery'), // وابستگی به جی‌کوئری
-            '1.0',
+            '1.1',
             true // لود در فوتر
         );
 
@@ -157,10 +150,10 @@ function ippanel_enqueue_scripts() {
 }
 
 
-// ========== بخش ۴: پردازش درخواست AJAX در سمت سرور ==========
+// ========== بخش ۴: پردازش درخواست AJAX در سمت سرور (اصلاح‌شده) ==========
 
 add_action('wp_ajax_send_ippanel_sms', 'ippanel_send_sms_callback');
-add_action('wp_ajax_nopriv_send_ippanel_sms', 'ippanel_send_sms_callback'); // برای کاربران لاگین نکرده هم قابل استفاده باشد
+add_action('wp_ajax_nopriv_send_ippanel_sms', 'ippanel_send_sms_callback');
 
 function ippanel_send_sms_callback() {
     // ۱. بررسی امنیتی nonce
@@ -181,17 +174,16 @@ function ippanel_send_sms_callback() {
     $api_key = isset($settings['api_key']) ? $settings['api_key'] : '';
     $originator = isset($settings['originator']) ? $settings['originator'] : '';
     $pattern_code = isset($settings['pattern_code']) ? $settings['pattern_code'] : '';
-    $pattern_variable = isset($settings['pattern_variable']) ? $settings['pattern_variable'] : 'verification-code'; // مقدار پیش‌فرض
 
-    if (empty($api_key) || empty($originator) || empty($pattern_code) || empty($pattern_variable)) {
+    // بررسی کامل بودن تنظیمات (فیلد متغیر حذف شد)
+    if (empty($api_key) || empty($originator) || empty($pattern_code)) {
         wp_send_json_error('تنظیمات پلاگین به درستی تکمیل نشده است. لطفاً به بخش تنظیمات مراجعه کنید.');
         wp_die();
     }
 
     // ۴. آماده‌سازی مقادیر برای ارسال به الگو
-    // در این مثال، ما یک کد تصادفی تولید می‌کنیم. شما می‌توانید هر مقدار دیگری قرار دهید.
-    $verification_code = rand(10000, 99999);
-    $pattern_values = [$pattern_variable => (string)$verification_code];
+    // چون پیامک ما متغیری ندارد، آرایه مقادیر خالی است.
+    $pattern_values = [];
 
     // ۵. ارسال درخواست به API ippanel
     $api_url = 'https://rest.ippanel.com/v1/messages/patterns';
@@ -200,7 +192,7 @@ function ippanel_send_sms_callback() {
         'pattern_code' => $pattern_code,
         'originator'   => $originator,
         'recipient'    => $phone_number,
-        'values'       => $pattern_values
+        'values'       => $pattern_values // اینجا یک آرایه خالی ارسال می‌شود
     ]);
 
     $headers = [
@@ -224,7 +216,8 @@ function ippanel_send_sms_callback() {
         $response_body = json_decode(wp_remote_retrieve_body($response), true);
 
         if ($response_code == 200 && isset($response_body['status']) && $response_body['status'] === 'OK') {
-            wp_send_json_success("پیامک با موفقیت ارسال شد. کد ارسالی: {$verification_code}");
+            // پیام موفقیت آمیز بدون اشاره به کد
+            wp_send_json_success("پیامک با موفقیت ارسال شد.");
         } else {
             $error_msg = isset($response_body['message']) ? $response_body['message'] : 'خطای ناشناخته';
             wp_send_json_error('خطا در ارسال پیامک: ' . $error_msg);
